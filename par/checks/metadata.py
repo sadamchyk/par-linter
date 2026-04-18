@@ -16,7 +16,7 @@ class MissingLabelsCheck(AlertCheck):
     rule_id = "required-labels"
 
     def check(self, alert: AlertRule, config: Config) -> list:
-        missing = [l for l in config.required_labels if l not in alert.labels]
+        missing = [label for label in config.required_labels if label not in alert.labels]
         if not missing:
             return []
         return [
@@ -28,7 +28,7 @@ class MissingLabelsCheck(AlertCheck):
                 file_path=alert.file_path,
                 line=alert.line,
                 message=f"Missing required label(s): {', '.join(missing)}",
-                suggestion=f"Add labels: {', '.join(f'{l}: <value>' for l in missing)}",
+                suggestion=f"Add labels: {', '.join(f'{label}: <value>' for label in missing)}",
             )
         ]
 

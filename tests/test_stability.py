@@ -1,11 +1,9 @@
-import pytest
 from par.checks.stability import (
     AbsentWithoutSelectorCheck,
     MissingForCheck,
     SuspiciousRateWindowCheck,
 )
 from par.config import Config
-from par.models import Severity
 from .conftest import make_alert
 
 

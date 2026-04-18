@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 
 from ..config import Config
-from ..models import AlertRule, Finding, RecordingRule, Severity
+from ..models import AlertRule, Finding, Severity
 from .base import AlertCheck, CorpusCheck
 
 _COMPARISON_RE = re.compile(r"(?:==|!=|>=|<=|>(?!=)|<(?!=))")

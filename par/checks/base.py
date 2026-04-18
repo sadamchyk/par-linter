@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from ..config import Config
-from ..models import AlertRule, Finding, RecordingRule
+from ..models import AlertRule
 
 
 class AlertCheck(ABC):

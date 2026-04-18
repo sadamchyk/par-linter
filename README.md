@@ -32,11 +32,39 @@ This tool borrows the strongest ideas from existing rule-quality linters such as
 - automatically rewriting PromQL
 - simulating full production query cost in large clusters
 
+## Quick start
+
+### Using pip and venv
+
+```bash
+make install          # creates .venv/ and installs par
+make test             # runs the test suite
+.venv/bin/par lint rules/*.yaml
+```
+
+Or manually:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+par lint rules/*.yaml
+```
+
+### Using Docker
+
+```bash
+make docker-build
+docker run --rm -v "$(pwd)/rules:/rules" par lint /rules
+docker run --rm -v "$(pwd)/rules:/rules" par lint /rules --format sarif > par.sarif
+```
+
 ## Example usage
 
 ```bash
 par lint rules/*.yaml
 par lint rules/*.yaml --format json
+par lint rules/*.yaml --format sarif > par.sarif
 par lint rules/*.yaml --config .par.yaml
 par lint rules/*.yaml --label team=sre
 par summary rules/*.yaml
@@ -51,9 +79,10 @@ par summary rules/*.yaml
 
 ## Output formats
 
-- `text` (default)
-- `json`
-- `table`
+- `text` (default) — human-readable grouped output
+- `json` — machine-readable findings
+- `table` — bordered table format
+- `sarif` — SARIF v2.1.0 for GitHub Actions code scanning
 
 ## What it checks
 
@@ -325,14 +354,64 @@ Use inline comments for narrow, documented exceptions.
 - deterministic rule IDs
 - CI-friendly summaries
 
-## Example CI usage
+## CI usage
+
+### Basic CI gate
 
 ```bash
 par lint rules/*.yaml --min-severity warning
 ```
 
+### JSON filtering
+
 ```bash
 par lint rules/*.yaml --format json | jq '.findings[] | select(.severity == "error")'
+```
+
+### GitHub Actions with SARIF
+
+```yaml
+name: par-lint
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: par lint rules/ --format sarif > par.sarif
+        continue-on-error: true
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: par.sarif
+```
+
+### GitHub Actions with Docker
+
+```yaml
+- run: docker build -t par .
+- run: docker run --rm -v "${{ github.workspace }}/rules:/rules" par lint /rules --format sarif > par.sarif
+  continue-on-error: true
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: par.sarif
+```
+
+### Makefile targets
+
+```bash
+make install        # create venv and install par
+make install-dev    # install with test/lint dependencies
+make test           # run tests
+make lint           # run ruff linter
+make cover          # test with coverage
+make docker-build   # build Docker image
+make docker-run     # run against examples/
+make clean          # remove build artifacts
+make clean-all      # also remove .venv/
 ```
 
 ## Future enhancements

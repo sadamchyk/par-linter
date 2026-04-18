@@ -1,4 +1,3 @@
-import pytest
 from par.checks.metadata import InvalidOwnerCheck, MissingAnnotationsCheck, MissingLabelsCheck
 from par.config import Config
 from par.models import Severity

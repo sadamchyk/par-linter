@@ -114,7 +114,6 @@ def _load(args) -> tuple:
 
 def _collect_findings(alerts, recordings, config) -> list[Finding]:
     findings: list = []
-    alert_lookup = {(a.file_path, a.group_name, a.name): a for a in alerts}
 
     for alert in alerts:
         for check in _ALERT_CHECKS:

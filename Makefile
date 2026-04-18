@@ -6,73 +6,105 @@ COVER_DIR     = .cover
 COVER_PROFILE = $(COVER_DIR)/coverage.xml
 
 PYTHON ?= python3
-PIP    := $(PYTHON) -m pip
+VENV   := .venv
+PIP    := $(VENV)/bin/pip
+VENV_PYTHON := $(VENV)/bin/python
 
-# ── install ────────────────────────────────────────────────────────────────────
+DOCKER_IMAGE ?= par
+DOCKER_TAG   ?= $(PAR_VERSION)
+
+# ── venv ─────────────────────────────────────────────────────────────────────
+
+$(VENV)/bin/activate:
+	$(PYTHON) -m venv $(VENV)
+	$(PIP) install --upgrade pip
+
+.PHONY: venv
+venv: $(VENV)/bin/activate
+
+# ── install ──────────────────────────────────────────────────────────────────
 
 .PHONY: install
-install:
+install: venv
 	$(PIP) install -e .
 
 .PHONY: install-dev
-install-dev:
-	$(PIP) install -e . pytest pytest-cov ruff
+install-dev: venv
+	$(PIP) install -e '.[dev]'
 
-# ── quality ────────────────────────────────────────────────────────────────────
+# ── quality ──────────────────────────────────────────────────────────────────
 
 .PHONY: lint
-lint:
-	$(PYTHON) -m ruff check par tests
+lint: install-dev
+	$(VENV_PYTHON) -m ruff check par tests
 
 .PHONY: format
-format:
-	$(PYTHON) -m ruff format par tests
+format: install-dev
+	$(VENV_PYTHON) -m ruff format par tests
 
-# ── test & coverage ───────────────────────────────────────────────────────────
+# ── test & coverage ─────────────────────────────────────────────────────────
 
 .PHONY: test
-test:
-	$(PYTHON) -m pytest tests/ -v
+test: install-dev
+	$(VENV_PYTHON) -m pytest tests/ -v
 
 .PHONY: cover
-cover:
+cover: install-dev
 	mkdir -p $(COVER_DIR)
-	$(PYTHON) -m pytest tests/ \
+	$(VENV_PYTHON) -m pytest tests/ \
 		--cov=par \
 		--cov-branch \
 		--cov-report=term-missing \
 		--cov-report=xml:$(COVER_PROFILE)
 
 .PHONY: coverhtml
-coverhtml:
+coverhtml: install-dev
 	mkdir -p $(COVER_DIR)
-	$(PYTHON) -m pytest tests/ \
+	$(VENV_PYTHON) -m pytest tests/ \
 		--cov=par \
 		--cov-branch \
 		--cov-report=html:$(COVER_DIR)/html
 	open $(COVER_DIR)/html/index.html
 
-# ── build & dist ──────────────────────────────────────────────────────────────
+# ── build & dist ─────────────────────────────────────────────────────────────
 
 .PHONY: build
-build: $(PAR_SRC) pyproject.toml
-	$(PYTHON) -m build
+build: $(PAR_SRC) pyproject.toml venv
+	$(VENV_PYTHON) -m build
 
-# ── example ───────────────────────────────────────────────────────────────────
+# ── docker ───────────────────────────────────────────────────────────────────
+
+.PHONY: docker-build
+docker-build:
+	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) -t $(DOCKER_IMAGE):latest .
+
+.PHONY: docker-run
+docker-run:
+	docker run --rm -v "$$(pwd)/examples:/rules" $(DOCKER_IMAGE):latest lint /rules --format table
+
+.PHONY: docker-sarif
+docker-sarif:
+	docker run --rm -v "$$(pwd)/examples:/rules" $(DOCKER_IMAGE):latest lint /rules --format sarif
+
+# ── example ──────────────────────────────────────────────────────────────────
 
 .PHONY: example
-example:
-	$(PAR_BIN) lint examples/ --format table --force-color; true
+example: install
+	$(VENV)/bin/par lint examples/ --format table --force-color; true
 
 .PHONY: example-json
-example-json:
-	$(PAR_BIN) lint examples/ --format json
+example-json: install
+	$(VENV)/bin/par lint examples/ --format json
 
 .PHONY: example-summary
-example-summary:
-	$(PAR_BIN) summary examples/ --format table --force-color; true
+example-summary: install
+	$(VENV)/bin/par summary examples/ --format table --force-color; true
 
-# ── clean ─────────────────────────────────────────────────────────────────────
+.PHONY: example-sarif
+example-sarif: install
+	$(VENV)/bin/par lint examples/ --format sarif
+
+# ── clean ────────────────────────────────────────────────────────────────────
 
 .PHONY: clean
 clean:
@@ -80,7 +112,11 @@ clean:
 	find . -type d -name '__pycache__' -exec rm -rf {} +
 	find . -type f -name '*.pyc' -delete
 
-# ── all ───────────────────────────────────────────────────────────────────────
+.PHONY: clean-all
+clean-all: clean
+	rm -rf $(VENV)/
+
+# ── all ──────────────────────────────────────────────────────────────────────
 
 .PHONY: all
 all: install test example

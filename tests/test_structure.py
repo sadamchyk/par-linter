@@ -1,4 +1,3 @@
-import pytest
 from par.checks.structure import (
     BrokenDependencyCheck,
     CounterAsThresholdCheck,

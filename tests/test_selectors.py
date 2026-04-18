@@ -1,4 +1,3 @@
-import pytest
 from par.checks.selectors import BroadSelectorCheck
 from par.config import Config
 from par.models import Severity

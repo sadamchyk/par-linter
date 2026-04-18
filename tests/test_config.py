@@ -1,6 +1,5 @@
 import textwrap
 
-import pytest
 
 from par.config import Config, parse_duration
 
