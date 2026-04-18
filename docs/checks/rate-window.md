@@ -1,6 +1,7 @@
 ---
 layout: default
 title: rate-window
+grand_parent: Documentation
 parent: Checks
 nav_order: 8
 ---

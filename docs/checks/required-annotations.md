@@ -1,6 +1,7 @@
 ---
 layout: default
 title: required-annotations
+grand_parent: Documentation
 parent: Checks
 nav_order: 4
 ---

@@ -1,6 +1,7 @@
 ---
 layout: default
 title: duplicate-alert
+grand_parent: Documentation
 parent: Checks
 nav_order: 10
 ---

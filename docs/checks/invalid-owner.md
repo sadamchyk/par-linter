@@ -1,6 +1,7 @@
 ---
 layout: default
 title: invalid-owner
+grand_parent: Documentation
 parent: Checks
 nav_order: 12
 ---

@@ -1,6 +1,7 @@
 ---
 layout: default
 title: no-comparison
+grand_parent: Documentation
 parent: Checks
 nav_order: 6
 ---

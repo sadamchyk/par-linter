@@ -1,6 +1,7 @@
 ---
 layout: default
 title: counter-threshold
+grand_parent: Documentation
 parent: Checks
 nav_order: 7
 ---

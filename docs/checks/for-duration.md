@@ -1,6 +1,7 @@
 ---
 layout: default
 title: for-duration
+grand_parent: Documentation
 parent: Checks
 nav_order: 1
 ---

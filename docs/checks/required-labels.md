@@ -1,6 +1,7 @@
 ---
 layout: default
 title: required-labels
+grand_parent: Documentation
 parent: Checks
 nav_order: 3
 ---
