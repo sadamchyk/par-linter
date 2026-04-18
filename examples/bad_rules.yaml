@@ -1,0 +1,154 @@
+groups:
+  - name: api_alerts
+    rules:
+      # for-duration: no 'for' duration – fires on first evaluation
+      - alert: APIDown
+        expr: up{job="api"} == 0
+        labels:
+          severity: critical
+          owner: sre
+        annotations:
+          summary: API is down
+          description: The API job has disappeared from Prometheus targets.
+          runbook_url: https://wiki.example.com/runbooks/api-down
+          dashboard_url: https://grafana.example.com/d/api-overview
+
+      # for-duration: 'for' too short (30s < 2m minimum)
+      - alert: HighErrorRate
+        expr: rate(http_errors_total{job="api"}[5m]) > 0.1
+        for: 30s
+        labels:
+          severity: warning
+          owner: dctech
+        annotations:
+          summary: High error rate on API
+          description: Error rate is above 10% for {{ $labels.job }}.
+          runbook_url: https://wiki.example.com/runbooks/high-error-rate
+          dashboard_url: https://grafana.example.com/d/api-errors
+
+      # required-labels + required-annotations: missing severity label, missing all annotations
+      - alert: HighCpuUsage
+        expr: process_cpu_seconds_total{job="api"} > 0.8
+        for: 5m
+
+      # broad-selector: no label selectors at all
+      - alert: AnyTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: sre
+        annotations:
+          summary: A target is down
+          description: Target {{ $labels.instance }} is down.
+          runbook_url: https://wiki.example.com/runbooks/target-down
+          dashboard_url: https://grafana.example.com/d/targets
+
+      # no-comparison: fires for every non-zero FD count
+      - alert: OpenFileDescriptors
+        expr: process_open_fds{job="api"}
+        for: 5m
+        labels:
+          severity: info
+          owner: dctech
+        annotations:
+          summary: File descriptors are open
+          description: Open FD count is {{ $value }}.
+          runbook_url: https://wiki.example.com/runbooks/fd
+          dashboard_url: https://grafana.example.com/d/process
+
+      # counter-threshold: counter used as absolute threshold
+      - alert: TooManyErrors
+        expr: http_errors_total{job="api"} > 100
+        for: 5m
+        labels:
+          severity: warning
+          owner: dctech
+        annotations:
+          summary: Too many errors
+          description: Error counter has exceeded 100.
+          runbook_url: https://wiki.example.com/runbooks/errors
+          dashboard_url: https://grafana.example.com/d/api-errors
+
+      # rate-window: rate() window too short (1m = ~4 samples at 15s scrape interval)
+      - alert: HighRequestRate
+        expr: rate(http_requests_total{job="api"}[1m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          owner: sre
+        annotations:
+          summary: Request rate is high
+          description: Request rate is {{ $value }} req/s.
+          runbook_url: https://wiki.example.com/runbooks/high-rps
+          dashboard_url: https://grafana.example.com/d/api-overview
+
+  - name: infra_alerts
+    rules:
+      # absent-selector: absent() with no label selectors
+      - alert: MetricMissing
+        expr: absent(up)
+        labels:
+          severity: warning
+          owner: sre
+        annotations:
+          summary: Metric is missing
+          description: The 'up' metric has disappeared from Prometheus.
+          runbook_url: https://wiki.example.com/runbooks/metric-missing
+          dashboard_url: https://grafana.example.com/d/targets
+
+      # recording-ref: references a recording rule not defined in any loaded file
+      # invalid-owner: 'platform' is not in the configured valid_owners list
+      - alert: HighSLOBurnRate
+        expr: job:http_error_rate:rate5m{job="api"} > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          owner: platform
+        annotations:
+          summary: SLO burn rate is high
+          description: Error budget is being consumed at {{ $value }}x the allowed rate.
+          runbook_url: https://wiki.example.com/runbooks/slo-burn
+          dashboard_url: https://grafana.example.com/d/slo
+
+  - name: eng_alerts
+    rules:
+      - alert: HighP99Latency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="api", cluster="prod"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          owner: eng
+        annotations:
+          summary: P99 latency above 1s on {{ $labels.job }}
+          description: 99th percentile latency is {{ $value | humanizeDuration }} for {{ $labels.job }} in {{ $labels.cluster }}.
+          runbook_url: https://wiki.example.com/runbooks/high-latency
+          dashboard_url: https://grafana.example.com/d/api-latency
+
+  - name: node_alerts
+    rules:
+      # duplicate-alert: duplicate alert name in the same group
+      - alert: DiskFull
+        expr: disk_used_percent{job="node", cluster="prod"} > 90
+        for: 5m
+        labels:
+          severity: warning
+          owner: dctech
+        annotations:
+          summary: Disk almost full
+          description: Disk usage is {{ $value }}% on {{ $labels.instance }}.
+          runbook_url: https://wiki.example.com/runbooks/disk-full
+          dashboard_url: https://grafana.example.com/d/node-storage
+
+      # par disable duplicate-alert
+      - alert: DiskFull
+        expr: disk_used_percent{job="node", cluster="prod"} > 95
+        for: 5m
+        labels:
+          severity: critical
+          owner: dctech
+        annotations:
+          summary: Disk critically full
+          description: Disk usage is {{ $value }}% on {{ $labels.instance }}.
+          runbook_url: https://wiki.example.com/runbooks/disk-full
+          dashboard_url: https://grafana.example.com/d/node-storage
