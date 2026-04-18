@@ -2,7 +2,7 @@ import io
 import json
 
 from par.models import Finding, Severity
-from par.reporter import print_json, print_text, print_table, print_summary_json, print_summary_table
+from par.reporter import print_json, print_sarif, print_text, print_table, print_summary_json, print_summary_table
 from .conftest import make_alert
 
 
@@ -104,6 +104,96 @@ class TestPrintSummaryJson:
         data = json.loads(out.getvalue())
         owner = data["owners"][0]
         assert owner["status"] == "issues"
+
+
+class TestPrintSarif:
+    def test_valid_sarif_structure(self):
+        out = io.StringIO()
+        findings = [
+            _make_finding(rule_id="for-duration", severity=Severity.WARNING, line=5),
+            _make_finding(rule_id="required-labels", severity=Severity.ERROR, line=10),
+        ]
+        print_sarif(findings, ["a.yaml"], 2, 1, out=out)
+        data = json.loads(out.getvalue())
+
+        assert data["version"] == "2.1.0"
+        assert "$schema" in data
+        assert len(data["runs"]) == 1
+
+        run = data["runs"][0]
+        assert run["tool"]["driver"]["name"] == "par"
+        assert len(run["tool"]["driver"]["rules"]) == 2
+        assert len(run["results"]) == 2
+
+    def test_severity_mapping(self):
+        out = io.StringIO()
+        findings = [
+            _make_finding(severity=Severity.ERROR),
+            _make_finding(rule_id="warn-check", severity=Severity.WARNING),
+            _make_finding(rule_id="info-check", severity=Severity.INFO),
+        ]
+        print_sarif(findings, ["a.yaml"], 1, 0, out=out)
+        data = json.loads(out.getvalue())
+        levels = [r["level"] for r in data["runs"][0]["results"]]
+        assert levels == ["error", "warning", "note"]
+
+    def test_location_has_line(self):
+        out = io.StringIO()
+        print_sarif([_make_finding(line=42)], ["a.yaml"], 1, 0, out=out)
+        data = json.loads(out.getvalue())
+        loc = data["runs"][0]["results"][0]["locations"][0]["physicalLocation"]
+        assert loc["region"]["startLine"] == 42
+        assert loc["artifactLocation"]["uri"] == "test.yaml"
+
+    def test_zero_line_omits_region(self):
+        out = io.StringIO()
+        print_sarif([_make_finding(line=0)], ["a.yaml"], 1, 0, out=out)
+        data = json.loads(out.getvalue())
+        region = data["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"]
+        assert region == {}
+
+    def test_empty_findings(self):
+        out = io.StringIO()
+        print_sarif([], ["a.yaml"], 0, 0, out=out)
+        data = json.loads(out.getvalue())
+        assert data["runs"][0]["results"] == []
+        assert data["runs"][0]["tool"]["driver"]["rules"] == []
+
+    def test_message_includes_suggestion(self):
+        out = io.StringIO()
+        print_sarif([_make_finding(message="bad thing", suggestion="do better")], ["a.yaml"], 1, 0, out=out)
+        data = json.loads(out.getvalue())
+        msg = data["runs"][0]["results"][0]["message"]["text"]
+        assert "bad thing" in msg
+        assert "Fix: do better" in msg
+
+    def test_rules_deduplicated(self):
+        out = io.StringIO()
+        findings = [
+            _make_finding(rule_id="for-duration", alert_name="A"),
+            _make_finding(rule_id="for-duration", alert_name="B"),
+            _make_finding(rule_id="broad-selector", alert_name="C"),
+        ]
+        print_sarif(findings, ["a.yaml"], 3, 0, out=out)
+        data = json.loads(out.getvalue())
+        rules = data["runs"][0]["tool"]["driver"]["rules"]
+        assert len(rules) == 2
+        rule_ids = [r["id"] for r in rules]
+        assert "for-duration" in rule_ids
+        assert "broad-selector" in rule_ids
+
+    def test_rule_index_matches(self):
+        out = io.StringIO()
+        findings = [
+            _make_finding(rule_id="broad-selector"),
+            _make_finding(rule_id="for-duration"),
+        ]
+        print_sarif(findings, ["a.yaml"], 2, 0, out=out)
+        data = json.loads(out.getvalue())
+        rules = data["runs"][0]["tool"]["driver"]["rules"]
+        rule_ids = [r["id"] for r in rules]
+        for result in data["runs"][0]["results"]:
+            assert rule_ids[result["ruleIndex"]] == result["ruleId"]
 
 
 class TestPrintSummaryTable:

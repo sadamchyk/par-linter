@@ -53,6 +53,11 @@ def test_lint_table_format():
     assert code == 2
 
 
+def test_lint_sarif_format():
+    code = run(["lint", _EXAMPLES, "--format", "sarif"])
+    assert code == 2
+
+
 def test_lint_directory_input(tmp_path):
     rule = tmp_path / "good.yaml"
     rule.write_text(

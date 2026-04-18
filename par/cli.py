@@ -22,7 +22,7 @@ from .checks.structure import (
 from .config import Config
 from .models import Finding, Severity
 from .parser import load_files
-from .reporter import print_json, print_summary_json, print_summary_table, print_table, print_text
+from .reporter import print_json, print_sarif, print_summary_json, print_summary_table, print_table, print_text
 
 _YAML_SUFFIXES = {".yaml", ".yml"}
 
@@ -72,7 +72,7 @@ def _parse_labels(raw_labels: list) -> tuple[dict, int]:
 
 def _add_common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("files", nargs="+", metavar="PATH", help="Rule YAML file(s) or director(ies).")
-    p.add_argument("--format", choices=["text", "json", "table"], default="text", help="Output format (default: text)")
+    p.add_argument("--format", choices=["text", "json", "table", "sarif"], default="text", help="Output format (default: text). Use 'sarif' for GitHub Actions integration.")
     p.add_argument("--config", metavar="FILE", help="Config file (default: .par.yaml)")
     p.add_argument("--label", metavar="KEY=VALUE", action="append", dest="labels", default=[], help="Only include alerts matching KEY=VALUE. Repeatable.")
     p.add_argument("--no-color", action="store_true", help="Disable colored output")
@@ -158,6 +158,8 @@ def _run_lint(args) -> int:
 
     if args.format == "json":
         print_json(filtered, resolved, len(alerts), len(recordings))
+    elif args.format == "sarif":
+        print_sarif(filtered, resolved, len(alerts), len(recordings))
     elif args.format == "table":
         print_table(filtered, resolved, len(alerts), len(recordings), use_color=use_color)
     else:
@@ -216,8 +218,17 @@ _EXAMPLES = """\
     par lint rules/*.yaml --format json
     par lint rules/ --config .par.yaml --min-severity warning
     par lint rules/ --label team=sre --format table
+    par lint rules/ --format sarif > par.sarif
     par summary rules/
-    par summary rules/ --format json"""
+    par summary rules/ --format json
+
+  GitHub Actions usage:
+    - name: Run par linter
+      run: par lint rules/ --format sarif > par.sarif
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: par.sarif"""
 
 _SUPPRESSION = """\
   Inline suppression:
@@ -274,7 +285,8 @@ def run(argv: Optional[list] = None) -> int:
             "    par lint rules/*.yaml\n"
             "    par lint rules/ --format json\n"
             "    par lint rules/ --min-severity warning --label team=sre\n"
-            "    par lint rules/ --format table --force-color"
+            "    par lint rules/ --format table --force-color\n"
+            "    par lint rules/ --format sarif > par.sarif"
         ),
     )
     _add_common_args(lint_p)

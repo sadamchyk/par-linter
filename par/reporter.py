@@ -260,6 +260,85 @@ def print_summary_json(
     out.write("\n")
 
 
+_SARIF_SEVERITY = {
+    Severity.ERROR: "error",
+    Severity.WARNING: "warning",
+    Severity.INFO: "note",
+}
+
+_CHECK_DESCRIPTIONS = {
+    "for-duration": "Alert has no or too-short 'for' duration.",
+    "absent-selector": "absent() used without label selectors.",
+    "rate-window": "rate()/irate() window shorter than 2 minutes.",
+    "required-labels": "Missing required labels.",
+    "required-annotations": "Missing required annotations.",
+    "invalid-owner": "Owner label not in the configured allowlist.",
+    "broad-selector": "Selector too broad or missing scoping labels.",
+    "no-comparison": "Alert expression lacks a comparison operator.",
+    "counter-threshold": "Counter metric used as an absolute threshold.",
+    "non-base-unit": "Metric uses a non-base unit suffix.",
+    "duplicate-alert": "Duplicate alert name in the same group.",
+    "recording-ref": "Recording rule referenced but not defined.",
+}
+
+
+def print_sarif(
+    findings: list,
+    files: list,
+    alert_count: int,
+    recording_count: int,
+    out: TextIO = sys.stdout,
+) -> None:
+    rule_ids = sorted({f.rule_id for f in findings})
+    rules = [
+        {
+            "id": rid,
+            "shortDescription": {"text": _CHECK_DESCRIPTIONS.get(rid, rid)},
+        }
+        for rid in rule_ids
+    ]
+    rule_index = {rid: i for i, rid in enumerate(rule_ids)}
+
+    results = []
+    for f in findings:
+        region = {"startLine": f.line} if f.line else {}
+        result = {
+            "ruleId": f.rule_id,
+            "ruleIndex": rule_index[f.rule_id],
+            "level": _SARIF_SEVERITY[f.severity],
+            "message": {"text": f"{f.message}\nFix: {f.suggestion}"},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f.file_path},
+                        "region": region,
+                    }
+                }
+            ],
+        }
+        results.append(result)
+
+    sarif = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "par",
+                        "informationUri": "https://github.com/stadamch/par-linter",
+                        "version": "0.1.0",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+    json.dump(sarif, out, indent=2)
+    out.write("\n")
+
+
 def print_json(
     findings: list,
     files: list,
