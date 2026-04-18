@@ -7,7 +7,7 @@
 
 `par` is a Prometheus alert rule linter.
 
-You can find online docs on [GitHub Pages](https://stadamch.github.io/par-linter/).
+You can find online docs on [GitHub Pages](https://sadamchyk.github.io/par-linter/).
 
 Alternatively you can read raw Markdown documentation [here](docs/).
 
