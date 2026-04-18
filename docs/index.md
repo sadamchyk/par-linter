@@ -24,6 +24,20 @@ on the operational problems that matter in production:
 - PromQL patterns that are technically valid but operationally risky
 - broken references between alerting rules and recording rules
 
+## Goals
+
+- Reduce alert noise before rules are merged
+- Make alerts more actionable during incidents
+- Give reviewers a CI-friendly quality gate
+- Support team-specific policy via configuration
+
+## Non-goals
+
+- Replacing `promtool test rules`
+- Replacing Alertmanager routing validation
+- Automatically rewriting PromQL
+- Simulating full production query cost in large clusters
+
 ## Requirements
 
 par runs all checks offline by reading only the rule files you provide. It does not
@@ -76,6 +90,15 @@ par rules/*.yaml
 par rules/api.yaml rules/infra.yaml
 ```
 
+### Output formats
+
+| Format | Description |
+|--------|-------------|
+| `text` | Human-readable grouped output (default) |
+| `json` | Machine-readable findings for CI pipelines |
+| `table` | Bordered table for quick review |
+| `sarif` | SARIF v2.1.0 for GitHub Actions code scanning |
+
 ### Options
 
 | Flag | Description |
@@ -83,6 +106,7 @@ par rules/api.yaml rules/infra.yaml
 | `--format text` | Human-readable output (default) |
 | `--format table` | Compact table output |
 | `--format json` | Machine-readable JSON, useful for CI pipelines |
+| `--format sarif` | SARIF v2.1.0 output for code scanning integration |
 | `--min-severity error\|warning\|info` | Only report findings at or above this level (default: `info`) |
 | `--config FILE` | Path to config file (default: `.par.yaml` in current directory) |
 | `--label KEY=VALUE` | Filter to alerts matching this label; repeatable |
@@ -178,6 +202,35 @@ Run par as a quality gate in any CI system that checks Prometheus rule files.
 To annotate pull requests with findings, pipe the JSON output to a formatter or use
 `--format github` in a future release.
 
+### GitHub Actions with SARIF
+
+```yaml
+name: par-lint
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: par rules/ --format sarif > par.sarif
+        continue-on-error: true
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: par.sarif
+```
+
+### Docker
+
+```shell
+make docker-build
+docker run --rm -v "$(pwd)/rules:/rules" par /rules
+docker run --rm -v "$(pwd)/rules:/rules" par /rules --format sarif > par.sarif
+```
+
 ### Pre-commit hook
 
 ```yaml
@@ -193,10 +246,50 @@ repos:
         files: \.ya?ml$
 ```
 
+## Architecture
+
+### 1. Parser layer
+
+- Load YAML files
+- Normalize rule groups and rules
+- Preserve file and line positions
+
+### 2. PromQL analysis layer
+
+- Parse `expr`
+- Walk the AST
+- Extract selectors, binary operators, functions, and aggregations
+
+### 3. Rule graph layer
+
+- Collect alert names
+- Collect recording-rule names
+- Map dependencies across files
+
+### 4. Policy engine
+
+- Run offline checks
+- Optionally run live checks against the Prometheus HTTP API
+
+### 5. Reporter
+
+- Text, JSON, table, and SARIF output
+- Deterministic rule IDs
+- CI-friendly summaries
+
 ## Checks
 
 See [Checks](checks.md) for the full catalog. Each check has its own page with examples
 and configuration options.
+
+## Future enhancements
+
+- Richer rule explanations with AST-aware suggestions
+- Optional integration with `promtool test rules`
+- Per-directory policy packs
+- Query cost estimation in live mode
+- Dashboards and runbook URL reachability checks
+- Suggested remediations for common PromQL mistakes
 
 ## Release notes
 
